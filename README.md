@@ -105,7 +105,11 @@ matches `data/q4_digits.csv.dvc`.
 
 ## Demo video
 
-<!-- FILL IN --> Link: `<video url>` — access granted to evaluators.
+https://drive.google.com/file/d/1E-D-WWa3JvGlkzXNSYUsB44WWhJL_kR6/view?usp=drive_link
+
+Shared publicly with link access, so no permission request is needed. It walks through
+all four questions: the technical debt mapping, the six MLflow runs, a live DVC rollback
+from v2 back to v1, and the Q4 drill with my partner.
 
 ## Repository layout
 
