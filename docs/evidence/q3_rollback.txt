@@ -1,0 +1,21 @@
+$ git log --oneline --decorate -4
+4cd9692 (HEAD -> main) added q4 training script + dvc data
+7385ef3 reorganised folders, added environment.yml
+07cb6f1 (tag: v2) update dataset to v2 2801 lines
+8f985a8 (tag: v1) add v1 dataset 1800 rows
+
+$ wc -l data.csv     # currently on v2
+2801 data.csv
+
+$ git checkout v1 -- data.csv.dvc
+$ dvc checkout
+M       data.csv
+
+$ wc -l data.csv     # rolled back to v1
+1801 data.csv
+
+$ git checkout v2 -- data.csv.dvc     # restore to v2
+$ dvc checkout
+M       data.csv
+$ wc -l data.csv
+2801 data.csv
