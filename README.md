@@ -3,8 +3,13 @@
 Experiment Management & Reproducibility. This repository holds my complete
 submission for all four questions.
 
-The one-page report with the written answers is **`DA3408_Assignment_1.pdf`**. Everything below tells you where each artefact lives and
-how to run the code yourself.
+The one-page report with the written answers is **`DA3408_Assignment_1.pdf`**. Everything
+below tells you where each artefact lives and how to run the code yourself.
+
+Most of this builds on the slides and the exercise notebooks Sir shared in his repo. The
+Q2 training script started from the Lecture 3 exercise and I adapted it to an MLP on
+MNIST, and the DVC and MLflow workflows follow what we covered in class. AI tool usage
+is declared in `AI_DISCLOSURE.md`.
 
 ---
 
