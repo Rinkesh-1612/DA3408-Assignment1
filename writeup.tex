@@ -1,0 +1,100 @@
+\documentclass[10pt,a4paper]{article}
+\usepackage[margin=0.55in]{geometry}
+\usepackage{amsmath,amssymb}
+\usepackage{hyperref}
+\usepackage{enumitem}
+\usepackage{booktabs}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{titlesec}
+\usepackage{parskip}
+
+\titlespacing*{\section}{0pt}{6pt}{2pt}
+\titlespacing*{\subsection}{0pt}{4pt}{1pt}
+\setlist{itemsep=1pt, topsep=1pt, parsep=0pt}
+\setlength{\parskip}{2pt}
+
+\lstset{
+    basicstyle=\scriptsize\ttfamily,
+    breaklines=true,
+    frame=single,
+    backgroundcolor=\color{gray!10},
+    keywordstyle=\color{blue},
+    commentstyle=\color{gray},
+    stringstyle=\color{teal},
+    xleftmargin=2pt
+}
+
+\begin{document}
+{\centering \textbf{\large AI Operations (AIOps): Module 1 Assignment Report}\par}
+\vspace{4pt}
+
+\section*{Q1: Technical Debt Diagnosis}
+\begin{enumerate}[label=(\alph*)]
+    \item \textbf{Entanglement (CACE):} changing the delivery-time rounding logic shifted the whole input distribution the model sees, which is why an unrelated feature like "favorite restaurants" ended up getting worse too.
+    \item \textbf{Undeclared Consumers:} marketing had been reading the raw output table for their dashboard with no API contract in place, and nobody on the ML team even knew it was happening, so a future retrain could break their campaign without anyone realizing why.
+    \item \textbf{Config/Glue-Code Debt (Pipeline Jungle):} 14 undocumented shell scripts glued together with no orchestration tool means there's no single source of truth for the order things run in or how they're configured, so silent failures are really just a matter of time.
+\end{enumerate}
+\textbf{Mitigation for (c):} pin a single \texttt{environment.yml} so the environment is reproducible, swap the loose scripts for an orchestrated \texttt{MLproject} or \texttt{dvc.yaml} where each stage has clearly declared inputs and outputs, and track everything centrally with \texttt{mlflow.log\_param()}, \texttt{log\_metric()}, and \texttt{set\_tag("git\_commit", ...)}.
+
+\section*{Q2: MLflow Experiment Comparison}
+I trained an MLP on MNIST across six runs, changing the hidden layer sizes, learning rate, and batch size each time to see what actually moved the needle. \texttt{mlp-wide-256-128} (0.001 lr, batch 128) came out on top at \textbf{97.21\%} val accuracy and 0.9719 F1, and my guess is the wider two-layer network simply had more room to pick up on stroke and edge patterns than the single-layer baseline did. There's no sign of overfitting across the 15 epochs either: train loss dropped from 0.2025 to 0.0069 while val accuracy climbed from 94.02\% to 97.21\% right alongside it, with no plateau or reversal anywhere. Learning rate ended up mattering the most out of everything I tuned. lr=0.0001 underfit badly (94.02\%), lr=0.01 got a bit unstable (95.93\%), and 0.001 landed right in the sweet spot. Architecture width helped a little more on top of that (+0.36\%), but shrinking the batch size to 64 barely moved accuracy (96.89\%) while nearly doubling training time from 24.1s to 40.3s, so that trade-off wasn't worth it.
+
+\begin{center}
+\small
+\begin{tabular}{lccccc}
+\toprule
+\textbf{Run} & \textbf{Layers} & \textbf{LR} & \textbf{Batch} & \textbf{Train Loss} & \textbf{Val Acc / F1} \\
+\midrule
+\texttt{mlp-wide-256-128} & (256,128) & 0.001 & 128 & 0.0069 & \textbf{0.9721} / 0.9719 \\
+\texttt{mlp-deep-128-64}  & (128,64)  & 0.001 & 128 & 0.0080 & 0.9705 / 0.9703 \\
+\texttt{mlp-small-batch-64} & (128,)  & 0.001 & 64  & 0.0107 & 0.9689 / 0.9687 \\
+\texttt{mlp-baseline-128}   & (128,)  & 0.001 & 128 & 0.0229 & 0.9685 / 0.9683 \\
+\texttt{mlp-high-lr-0.01}   & (128,)  & 0.010 & 128 & 0.0344 & 0.9593 / 0.9593 \\
+\texttt{mlp-low-lr-0.0001}  & (128,)  & 0.0001& 128 & 0.2025 & 0.9402 / 0.9397 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\begin{lstlisting}[language=Python]
+mlflow.log_param("hidden_layer_sizes", str(hidden_layer_sizes))
+mlflow.log_param("learning_rate_init", lr)
+mlflow.log_param("batch_size", batch_size)
+mlflow.log_param("max_iter", max_iter)
+mlflow.log_param("solver", "adam")
+mlflow.log_param("random_state", 42)
+
+mlflow.log_metric("train_loss", train_loss)
+mlflow.log_metric("val_accuracy", acc)
+mlflow.log_metric("val_f1_macro", f1)
+mlflow.log_metric("train_time_sec", train_time)
+
+mlflow.set_tag("dataset", "MNIST")
+mlflow.sklearn.log_model(model, name="model", serialization_format="cloudpickle")
+\end{lstlisting}
+
+\section*{Q3: DVC Data Versioning \& Rollback}
+I initialized DVC in the repo and pushed v1 (1800 rows) to an SSH remote\\
+(\path{ssh://trader@localhost/home/trader/dvc_storage}), then added the rows from \texttt{new\_labels.zip} to build v2 (2801 rows), re-ran \texttt{dvc add}, and committed that with a clear message. To roll back I ran \texttt{git checkout <v1-commit> -- data.csv.dvc} followed by \texttt{dvc checkout}, which restored v1 exactly, confirmed below:
+\begin{lstlisting}
+$ git log --oneline --decorate -8     # v1 and v2 are tagged
+07cb6f1 (tag: v2) update dataset to v2 2801 lines
+8f985a8 (tag: v1) add v1 dataset 1800 rows
+
+$ wc -l data.csv                      # currently on v2
+2801 data.csv
+$ git checkout v1 -- data.csv.dvc && dvc checkout
+M       data.csv
+$ wc -l data.csv                      # rolled back to v1
+1801 data.csv                         # = 1800 rows + 1 header line
+\end{lstlisting}
+
+\section*{Q4: End-to-End Reproducibility Drill}
+My partner for this question is Prabhav (DA24B018), and we work in a shared private repo
+containing only the Q4 materials: \url{https://github.com/Rinkesh-1612/DA3408-Assignment1-Q4}.
+
+As Partner A, I trained a RandomForest classifier and logged the params, metrics, seed, a \texttt{git\_commit} tag, and the model artifact to MLflow, then versioned the dataset with DVC and committed the training script together with the \texttt{.dvc} file in a single commit (\texttt{409eef7}). I registered the model as \texttt{q4-digits-classifier} and moved v1 to \textbf{Staging}, which gave \texttt{val\_accuracy = 0.9639}.
+
+Prabhav reproduces it from the \texttt{partner-a-baseline} tag using only \texttt{git clone}, \texttt{git checkout}, \texttt{dvc checkout}, and \texttt{mamba env create -f environment.yml}, then reruns the script and logs a note on the run recording whether the metric matched within tolerance. The DVC store is committed inside that repo, so \texttt{dvc checkout} works on a fresh clone with no credentials or server. His contribution is committed to the same repo under his own commit message, so each half is attributable.
+
+\end{document}

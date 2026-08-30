@@ -1,20 +1,32 @@
-$ git log --oneline --decorate -4
-4cd9692 (HEAD -> main) added q4 training script + dvc data
-7385ef3 reorganised folders, added environment.yml
+$ git log --oneline --decorate -8      # v1 and v2 are tagged
+e9eb898 (HEAD -> main, origin/main, origin/HEAD) credit course slides and notebooks in readme
+9c48d48 reword ai disclosure
+b63d25d add ai disclosure
+037347d add readme, report pdf, screenshots and q3 rollback evidence
+e9620f1 add q4 training script and dvc-tracked dataset
+378dda5 reorganise into docs/ and notebooks/, add environment.yml
 07cb6f1 (tag: v2) update dataset to v2 2801 lines
 8f985a8 (tag: v1) add v1 dataset 1800 rows
 
-$ wc -l data.csv     # currently on v2
+$ cat .dvc/config                      # the SSH remote
+[core]
+    remote = myremote
+['remote "myremote"']
+    url = ssh://trader@localhost/home/trader/dvc_storage
+    keyfile = /home/trader/.ssh/id_ed25519
+
+$ wc -l data.csv                       # currently on v2
 2801 data.csv
 
-$ git checkout v1 -- data.csv.dvc
-$ dvc checkout
+$ git checkout v1 -- data.csv.dvc      # swap the pointer back to v1
+$ dvc checkout                         # make the data match the pointer
 M       data.csv
 
-$ wc -l data.csv     # rolled back to v1
+$ wc -l data.csv                       # rolled back to v1
 1801 data.csv
+                                       # 1801 = 1800 rows + 1 header line
 
-$ git checkout v2 -- data.csv.dvc     # restore to v2
+$ git checkout v2 -- data.csv.dvc      # restore to v2
 $ dvc checkout
 M       data.csv
 $ wc -l data.csv
